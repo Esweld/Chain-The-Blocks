@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "catagory": "misc",
+  "ingredients": [
+    {
+      "item": "chaintheblocks:chain_block"
+    }
+  ],
+  "result": {
+    "item": "minecraft:chain",
+    "count": 9
+  }
+}

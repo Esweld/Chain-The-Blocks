@@ -6,6 +6,8 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChainBlock;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
@@ -21,7 +23,7 @@ public class ModBlocks {
 
 
     public static final RegistryObject<Block> CHAIN_BLOCK = registerBlock("chain_block",
-            () -> new Block(BlockBehaviour.Properties.copy(Blocks.OAK_LEAVES)));
+            () -> new ChainBlock(BlockBehaviour.Properties.copy(Blocks.OBSIDIAN).sound(SoundType.CHAIN).strength(40.0F, 1000.0F)));
 
     private static <T extends Block> RegistryObject<T> registerBlock(String name, Supplier<T> block) {
         RegistryObject<T> toReturn = BLOCKS.register(name, block);

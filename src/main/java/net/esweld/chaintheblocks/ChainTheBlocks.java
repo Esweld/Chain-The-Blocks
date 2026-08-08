@@ -56,7 +56,7 @@ public class ChainTheBlocks
     private void addCreative(BuildCreativeModeTabContentsEvent event)
     {
         if(event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(ModItems.CHAINBLOCK);
+            //event.accept(ModItems.CHAINBLOCK);
             event.accept(ModBlocks.CHAIN_BLOCK);
         }
     }

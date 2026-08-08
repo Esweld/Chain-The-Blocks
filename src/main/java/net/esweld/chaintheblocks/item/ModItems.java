@@ -12,10 +12,10 @@ public class ModItems {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(ForgeRegistries.ITEMS, ChainTheBlocks.MOD_ID);
 
-    // how to add item: public static final RegistryObject<Item> NAME = ITEMS.register("Name",
+    // how to add item: public static final RegistryObject<Item> NAME = ITEMS.register("name",
     //      () ->)
-    public static final RegistryObject<Item> CHAINBLOCK = ITEMS.register("chainblock",
-            () -> new Item(new Item.Properties()));
+    //public static final RegistryObject<Item> CHAINBLOCK = ITEMS.register("chainblock",
+    //        () -> new Item(new Item.Properties()));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
