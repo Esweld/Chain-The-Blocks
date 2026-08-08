@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "chaintheblocks:block/chain_block"
+    }
+  }
+}
