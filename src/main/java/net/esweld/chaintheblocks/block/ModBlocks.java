@@ -1,6 +1,6 @@
 package net.esweld.chaintheblocks.block;
 
-import net.esweld.chaintheblocks.block.custom.ChainBlock
+import net.esweld.chaintheblocks.block.custom.ChainBlock;
 import net.esweld.chaintheblocks.ChainTheBlocks;
 import net.esweld.chaintheblocks.item.ModItems;
 import net.minecraft.world.item.BlockItem;
