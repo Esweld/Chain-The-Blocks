@@ -1,3 +1,4 @@
 {
-  "block.chaintheblocks.chain_block": "Chain Block"
+  "block.chaintheblocks.chain_block": "Chain Block",
+  "block.chaintheblocks.chain_block.unwrappable": "Boo"
 }

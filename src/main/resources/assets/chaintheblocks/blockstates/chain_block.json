@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "chaintheblocks:block/chain_block"
-    }
+    "filled=false": { "model": "chaintheblocks:block/chain_block" },
+    "filled=true": { "model": "chaintheblocks:block/chain_block" }
   }
 }

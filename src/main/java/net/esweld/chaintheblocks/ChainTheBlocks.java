@@ -2,7 +2,9 @@ package net.esweld.chaintheblocks;
 
 import com.mojang.logging.LogUtils;
 import net.esweld.chaintheblocks.block.ModBlocks;
+import net.esweld.chaintheblocks.blockentity.ModBlockEntities;
 import net.esweld.chaintheblocks.item.ModItems;
+import net.esweld.chaintheblocks.blockentity.ModBlockEntities;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
@@ -32,6 +34,7 @@ public class ChainTheBlocks
 
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+        ModBlockEntities.register(modEventBus);
 
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
