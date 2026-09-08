@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.ItemOverrides;
+import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
@@ -68,7 +69,7 @@ public class ChainBlockBakedModel implements BakedModel {
 
     @Override
     public boolean isGui3d() {
-        return chain.isGui3d();
+        return true;
     }
 
     @Override
@@ -89,5 +90,10 @@ public class ChainBlockBakedModel implements BakedModel {
     @Override
     public ItemOverrides getOverrides() {
         return chain.getOverrides();
+    }
+
+    @Override
+    public ItemTransforms getTransforms() {
+        return chain.getTransforms();
     }
 }

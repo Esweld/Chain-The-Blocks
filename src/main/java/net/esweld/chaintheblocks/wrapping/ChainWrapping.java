@@ -33,12 +33,16 @@ public final class ChainWrapping {
     private ChainWrapping() {
     }
 
+    public static boolean isOurChain(BlockState state) {
+        return state.getBlock() instanceof ChainBlock && state.hasProperty(ChainBlock.FILLED);
+    }
+
     public static boolean isEmptyChain(BlockState state) {
-        return state.is(ModBlocks.CHAIN_BLOCK.get()) && !state.getValue(ChainBlock.FILLED);
+        return isOurChain(state) && !state.getValue(ChainBlock.FILLED);
     }
 
     public static boolean isFilledChain(BlockState state) {
-        return state.is(ModBlocks.CHAIN_BLOCK.get()) && state.getValue(ChainBlock.FILLED);
+        return isOurChain(state) && state.getValue(ChainBlock.FILLED);
     }
 
     public static boolean isTooLarge(BlockState state) {
@@ -52,14 +56,17 @@ public final class ChainWrapping {
             return true;
         }
         return state.hasProperty(BlockStateProperties.EXTENDED)
-                && state.getValue(BlockStateProperties.EXTENDED);
+                && Boolean.TRUE.equals(state.getValue(BlockStateProperties.EXTENDED));
     }
 
     public static boolean canWrap(Level level, BlockPos pos, BlockState state) {
+        if (!(ModBlocks.CHAIN_BLOCK.get() instanceof ChainBlock)) {
+            return false;
+        }
         if (state.isAir() || !state.getFluidState().isEmpty() || state.getBlock() instanceof LiquidBlock) {
             return false;
         }
-        if (state.is(ModBlocks.CHAIN_BLOCK.get())) {
+        if (isOurChain(state)) {
             return false;
         }
         if (state.getDestroySpeed(level, pos) < 0) {
@@ -82,7 +89,27 @@ public final class ChainWrapping {
         if (!canWrap(level, pos, target)) {
             return false;
         }
-        return encase(level, pos, target, copyAndClear(level, pos), true);
+        CompoundTag tag = snapshotBe(level, pos);
+        try {
+            unpairChest(level, pos, target);
+            clearContainerSoItDoesNotSpill(level, pos);
+            BlockState chain = filledChainState();
+            if (!level.setBlock(pos, chain, Block.UPDATE_ALL)) {
+                restoreInner(level, pos, target, tag);
+                return false;
+            }
+            if (level.getBlockEntity(pos) instanceof ChainBlockEntity chainBe) {
+                chainBe.setContained(normalizeStoredState(target), tag);
+                level.getLightEngine().checkBlock(pos);
+                level.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
+                return true;
+            }
+            restoreInner(level, pos, target, tag);
+            return false;
+        } catch (RuntimeException ex) {
+            restoreInner(level, pos, target, tag);
+            throw ex;
+        }
     }
 
     public static boolean moveBlockIntoChain(Level level, BlockPos source, BlockPos chainPos) {
@@ -90,27 +117,37 @@ public final class ChainWrapping {
         if (!isEmptyChain(level.getBlockState(chainPos)) || !canWrap(level, source, sourceState)) {
             return false;
         }
-        CompoundTag tag = copyAndClear(level, source);
+        CompoundTag tag = snapshotBe(level, source);
         unpairChest(level, source, sourceState);
+        clearContainerSoItDoesNotSpill(level, source);
         level.removeBlock(source, false);
-        return fillChain(level, chainPos, normalizeStoredState(sourceState), tag);
+        if (!fillChain(level, chainPos, normalizeStoredState(sourceState), tag)) {
+            restoreInner(level, source, sourceState, tag);
+            return false;
+        }
+        return true;
     }
 
     public static boolean insertFromItem(Level level, BlockPos chainPos, ItemStack stack,
                                          @Nullable Player player, BlockHitResult hit) {
-        if (!(stack.getItem() instanceof BlockItem blockItem)) {
+        if (!(stack.getItem() instanceof BlockItem blockItem) || hit == null) {
             return false;
         }
         if (!isEmptyChain(level.getBlockState(chainPos))) {
             return false;
         }
-        BlockPlaceContext ctx = new BlockPlaceContext(level, player,
-                player != null ? player.getUsedItemHand() : InteractionHand.MAIN_HAND, stack, hit);
-        BlockState toPlace = blockItem.getBlock().getStateForPlacement(ctx);
+        BlockState toPlace;
+        try {
+            BlockPlaceContext ctx = new BlockPlaceContext(level, player,
+                    player != null ? player.getUsedItemHand() : InteractionHand.MAIN_HAND, stack, hit);
+            toPlace = blockItem.getBlock().getStateForPlacement(ctx);
+        } catch (RuntimeException ex) {
+            toPlace = null;
+        }
         if (toPlace == null) {
             toPlace = blockItem.getBlock().defaultBlockState();
         }
-        if (toPlace.isAir() || isTooLarge(toPlace) || toPlace.is(ModBlocks.CHAIN_BLOCK.get())) {
+        if (toPlace.isAir() || isTooLarge(toPlace) || isOurChain(toPlace)) {
             return false;
         }
         CompoundTag beTag = BlockItem.getBlockEntityData(stack);
@@ -123,14 +160,16 @@ public final class ChainWrapping {
         return true;
     }
 
-    public static boolean peelTo(Level level, BlockPos filledPos, BlockPos emptyDest) {
+    public static BlockState emptyChainState() {
+        return ModBlocks.CHAIN_BLOCK.get().defaultBlockState().setValue(ChainBlock.FILLED, false);
+    }
+
+    public static boolean restoreContained(Level level, BlockPos filledPos) {
         if (!(level.getBlockEntity(filledPos) instanceof ChainBlockEntity be) || !be.hasContained()) {
             return false;
         }
         BlockState inner = be.getContainedState();
         CompoundTag tag = be.copyContainedBeTag();
-        level.setBlock(emptyDest, ModBlocks.CHAIN_BLOCK.get().defaultBlockState()
-                .setValue(ChainBlock.FILLED, false), Block.UPDATE_ALL);
         restoreInner(level, filledPos, inner, tag);
         level.playSound(null, filledPos, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 1.0F, 1.0F);
         return true;
@@ -138,7 +177,6 @@ public final class ChainWrapping {
 
     public static void restoreInner(Level level, BlockPos pos, BlockState inner, @Nullable CompoundTag tag) {
         if (inner == null) {
-            level.removeBlock(pos, false);
             return;
         }
         level.setBlock(pos, inner, Block.UPDATE_ALL);
@@ -152,23 +190,13 @@ public final class ChainWrapping {
         level.getLightEngine().checkBlock(pos);
     }
 
-    private static boolean encase(Level level, BlockPos pos, BlockState target, @Nullable CompoundTag tag, boolean playSound) {
-        unpairChest(level, pos, target);
-        BlockState chain = ModBlocks.CHAIN_BLOCK.get().defaultBlockState().setValue(ChainBlock.FILLED, true);
-        level.setBlock(pos, chain, Block.UPDATE_ALL);
-        if (level.getBlockEntity(pos) instanceof ChainBlockEntity chainBe) {
-            chainBe.setContained(normalizeStoredState(target), tag);
-        }
-        level.getLightEngine().checkBlock(pos);
-        if (playSound) {
-            level.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 1.0F, 0.8F);
-        }
-        return true;
-    }
-
     private static boolean fillChain(Level level, BlockPos chainPos, BlockState stored, @Nullable CompoundTag tag) {
-        BlockState filled = level.getBlockState(chainPos).setValue(ChainBlock.FILLED, true);
-        level.setBlock(chainPos, filled, Block.UPDATE_ALL);
+        if (!isEmptyChain(level.getBlockState(chainPos))) {
+            return false;
+        }
+        if (!level.setBlock(chainPos, filledChainState(), Block.UPDATE_ALL)) {
+            return false;
+        }
         if (level.getBlockEntity(chainPos) instanceof ChainBlockEntity chainBe) {
             chainBe.setContained(stored, tag);
             level.getLightEngine().checkBlock(chainPos);
@@ -178,17 +206,21 @@ public final class ChainWrapping {
         return false;
     }
 
+    private static BlockState filledChainState() {
+        return ModBlocks.CHAIN_BLOCK.get().defaultBlockState().setValue(ChainBlock.FILLED, true);
+    }
+
     @Nullable
-    private static CompoundTag copyAndClear(Level level, BlockPos pos) {
+    private static CompoundTag snapshotBe(Level level, BlockPos pos) {
         BlockEntity be = level.getBlockEntity(pos);
-        if (be == null) {
-            return null;
-        }
-        CompoundTag tag = be.saveWithoutMetadata();
+        return be == null ? null : be.saveWithoutMetadata();
+    }
+
+    private static void clearContainerSoItDoesNotSpill(Level level, BlockPos pos) {
+        BlockEntity be = level.getBlockEntity(pos);
         if (be instanceof Container container) {
             container.clearContent();
         }
-        return tag;
     }
 
     private static void unpairChest(Level level, BlockPos pos, BlockState state) {

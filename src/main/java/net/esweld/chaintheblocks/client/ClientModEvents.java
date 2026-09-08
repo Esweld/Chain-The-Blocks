@@ -2,6 +2,7 @@ package net.esweld.chaintheblocks.client;
 
 import net.esweld.chaintheblocks.ChainTheBlocks;
 import net.esweld.chaintheblocks.blockentity.ModBlockEntities;
+import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -19,9 +20,13 @@ public class ClientModEvents {
         var models = event.getModels();
         List<ResourceLocation> keys = new ArrayList<>();
         for (ResourceLocation key : models.keySet()) {
-            if ("chaintheblocks".equals(key.getNamespace()) && "chain_block".equals(key.getPath())) {
-                keys.add(key);
+            if (!"chaintheblocks".equals(key.getNamespace()) || !"chain_block".equals(key.getPath())) {
+                continue;
             }
+            if (key instanceof ModelResourceLocation mrl && "inventory".equals(mrl.getVariant())) {
+                continue;
+            }
+            keys.add(key);
         }
         for (ResourceLocation key : keys) {
             models.put(key, new ChainBlockBakedModel(models.get(key)));

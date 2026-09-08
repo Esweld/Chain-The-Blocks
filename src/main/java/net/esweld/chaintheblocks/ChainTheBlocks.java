@@ -1,5 +1,6 @@
 package net.esweld.chaintheblocks;
 
+
 import com.mojang.logging.LogUtils;
 import net.esweld.chaintheblocks.block.ModBlocks;
 import net.esweld.chaintheblocks.blockentity.ModBlockEntities;
@@ -18,6 +19,16 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
+
+import net.esweld.chaintheblocks.wrapping.ChainInsertDispenseBehavior;
+import net.minecraft.core.dispenser.DispenseItemBehavior;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import net.minecraftforge.registries.ForgeRegistries;
+import java.util.Map;
+
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(ChainTheBlocks.MOD_ID)
@@ -50,10 +61,37 @@ public class ChainTheBlocks
         // context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
-    private void commonSetup(final FMLCommonSetupEvent event)
-    {
-
+    private void commonSetup(final FMLCommonSetupEvent event) {
+        event.enqueueWork(ChainTheBlocks::registerDispenserBehaviors);
     }
+
+    @SuppressWarnings("unchecked")
+    private static void registerDispenserBehaviors() {
+        Map<Item, DispenseItemBehavior> registry = null;
+        try {
+            registry = ObfuscationReflectionHelper.getPrivateValue(DispenserBlock.class, null, "DISPENSER_REGISTRY");
+        } catch (Exception ignored) {
+        }
+        if (registry == null) {
+            try {
+                var field = DispenserBlock.class.getDeclaredField("DISPENSER_REGISTRY");
+                field.setAccessible(true);
+                registry = (Map<Item, DispenseItemBehavior>) field.get(null);
+            } catch (Exception e) {
+                return;
+            }
+        }
+        for (Item item : ForgeRegistries.ITEMS) {
+            if (item instanceof BlockItem) {
+                DispenseItemBehavior existing = registry.get(item);
+                if (existing instanceof ChainInsertDispenseBehavior) {
+                    continue;
+                }
+                DispenserBlock.registerBehavior(item, new ChainInsertDispenseBehavior(existing));
+            }
+        }
+    }
+
 
     // Add the example block item to the building blocks tab
     private void addCreative(BuildCreativeModeTabContentsEvent event)

@@ -1,6 +1,9 @@
 {
-  "variants": {
-    "filled=false": { "model": "chaintheblocks:block/chain_block" },
-    "filled=true": { "model": "chaintheblocks:block/chain_block" }
-  }
+  "multipart": [
+    {
+      "apply": {
+        "model": "chaintheblocks:block/chain_block"
+      }
+    }
+  ]
 }

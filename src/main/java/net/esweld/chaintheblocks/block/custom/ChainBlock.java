@@ -3,12 +3,17 @@ package net.esweld.chaintheblocks.block.custom;
 import net.esweld.chaintheblocks.blockentity.ChainBlockEntity;
 import net.esweld.chaintheblocks.wrapping.ChainWrapping;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.stats.Stats;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -18,23 +23,28 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.phys.BlockHitResult;
+
+import net.minecraft.world.level.material.PushReaction;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
 public class ChainBlock extends Block implements EntityBlock {
     public static final BooleanProperty FILLED = BooleanProperty.create("filled");
+    public static final IntegerProperty LIGHT = IntegerProperty.create("light", 0, 15);
 
     public ChainBlock(Properties properties) {
         super(properties);
-        this.registerDefaultState(this.stateDefinition.any().setValue(FILLED, false));
+        this.registerDefaultState(this.stateDefinition.any().setValue(FILLED, false).setValue(LIGHT, 0));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FILLED);
+        builder.add(FILLED, LIGHT);
     }
 
     @Nullable
@@ -46,6 +56,26 @@ public class ChainBlock extends Block implements EntityBlock {
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
+    }
+
+    @Override
+    public PushReaction getPistonPushReaction(BlockState state) {
+        return state.getValue(FILLED) ? PushReaction.BLOCK : PushReaction.PUSH_ONLY;
+    }
+
+    @Nullable
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        CompoundTag tag = BlockItem.getBlockEntityData(context.getItemInHand());
+        boolean filled = tag != null && tag.contains("ContainedState");
+        int light = 0;
+        if (filled) {
+            BlockState inner = NbtUtils.readBlockState(
+                    context.getLevel().holderLookup(Registries.BLOCK),
+                    tag.getCompound("ContainedState"));
+            light = Mth.clamp(inner.getLightEmission(), 0, 15);
+        }
+        return this.defaultBlockState().setValue(FILLED, filled).setValue(LIGHT, light);
     }
 
     @Override
@@ -71,7 +101,11 @@ public class ChainBlock extends Block implements EntityBlock {
 
     @Override
     public ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
-        return new ItemStack(this);
+        ItemStack stack = new ItemStack(this);
+        if (state.getValue(FILLED) && level.getBlockEntity(pos) instanceof ChainBlockEntity be) {
+            be.saveToItem(stack);
+        }
+        return stack;
     }
 
     @Override
@@ -80,14 +114,19 @@ public class ChainBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public int getLightEmission(BlockState state, BlockGetter level, BlockPos pos) {
-        if (state.getValue(FILLED) && level.getBlockEntity(pos) instanceof ChainBlockEntity be && be.hasContained()) {
-            BlockState inner = be.getContainedState();
-            if (inner != null) {
-                return inner.getLightEmission(level, pos);
-            }
+    public boolean onDestroyedByPlayer(BlockState state, Level level, BlockPos pos, Player player,
+                                       boolean willHarvest, FluidState fluid) {
+        if (!level.isClientSide && willHarvest && !player.getAbilities().instabuild) {
+            popResource(level, pos, new ItemStack(this));
         }
-        return 0;
+        return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
+    }
+
+    @Override
+    public void playerDestroy(Level level, Player player, BlockPos pos, BlockState state,
+                              @Nullable BlockEntity blockEntity, ItemStack tool) {
+        player.awardStat(Stats.BLOCK_MINED.get(this));
+        player.causeFoodExhaustion(0.005F);
     }
 
     @Override
