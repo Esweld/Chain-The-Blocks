@@ -23,7 +23,7 @@ public class ModBlocks {
 
 
     public static final RegistryObject<Block> CHAIN_BLOCK = registerBlock("chain_block",
-            () -> new Block(BlockBehaviour.Properties.copy(Blocks.OBSIDIAN)
+            () -> new ChainBlock(BlockBehaviour.Properties.copy(Blocks.OBSIDIAN)
                     .sound(SoundType.CHAIN)
                     .strength(40.0F, 1000.0F)
                     .noOcclusion()

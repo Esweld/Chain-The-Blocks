@@ -10,12 +10,18 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelProperty;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
 public class ChainBlockEntity extends BlockEntity {
+    public static final ModelProperty<BlockState> INNER = new ModelProperty<>();
+
     private static final String STATE_KEY = "ContainedState";
     private static final String BE_KEY = "ContainedBE";
 
@@ -42,14 +48,27 @@ public class ChainBlockEntity extends BlockEntity {
         return containedBeTag == null ? null : containedBeTag.copy();
     }
 
+    public boolean needsEntityRenderer() {
+        return hasContained() && containedState.getRenderShape() != RenderShape.MODEL;
+    }
+
     public void setContained(@Nullable BlockState state, @Nullable CompoundTag beTag) {
         this.containedState = state;
         this.containedBeTag = beTag == null ? null : beTag.copy();
         setChanged();
+        requestModelDataUpdate();
         if (level != null && !level.isClientSide) {
             BlockState current = getBlockState();
-            level.sendBlockUpdated(worldPosition, current, current, Block.UPDATE_CLIENTS);
+            level.sendBlockUpdated(worldPosition, current, current, Block.UPDATE_ALL);
         }
+    }
+
+    @Override
+    public @NotNull ModelData getModelData() {
+        if (!hasContained()) {
+            return ModelData.EMPTY;
+        }
+        return ModelData.builder().with(INNER, containedState).build();
     }
 
     @Override
@@ -75,6 +94,7 @@ public class ChainBlockEntity extends BlockEntity {
             containedState = null;
             containedBeTag = null;
         }
+        requestModelDataUpdate();
     }
 
     @Override
@@ -94,6 +114,8 @@ public class ChainBlockEntity extends BlockEntity {
         if (tag != null) {
             load(tag);
         }
+        if (level != null) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+        }
     }
 }
-

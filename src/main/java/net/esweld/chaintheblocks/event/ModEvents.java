@@ -52,12 +52,12 @@ public class ModEvents {
             return;
         }
 
-        if (ChainWrapping.isEmptyChain(clicked) && stack.getItem() instanceof BlockItem) {
-            if (!level.isClientSide) {
-                ChainWrapping.insertFromItem(level, pos, stack, player, event.getHitVec());
-            }
-            event.setCanceled(true);
-            event.setCancellationResult(InteractionResult.sidedSuccess(level.isClientSide));
-        }
+//        if (ChainWrapping.isEmptyChain(clicked) && stack.getItem() instanceof BlockItem) {
+//            if (!level.isClientSide) {
+//                ChainWrapping.insertFromItem(level, pos, stack, player, event.getHitVec());
+//            }
+//            event.setCanceled(true);
+//            event.setCancellationResult(InteractionResult.sidedSuccess(level.isClientSide));
+//        }
     }
 }
