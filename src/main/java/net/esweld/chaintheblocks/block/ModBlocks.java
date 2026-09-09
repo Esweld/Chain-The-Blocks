@@ -2,14 +2,13 @@ package net.esweld.chaintheblocks.block;
 
 import net.esweld.chaintheblocks.ChainTheBlocks;
 import net.esweld.chaintheblocks.block.custom.ChainBlock;
+import net.esweld.chaintheblocks.item.ChainBlockItem;
 import net.esweld.chaintheblocks.item.ModItems;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraft.world.level.material.PushReaction;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -26,7 +25,6 @@ public class ModBlocks {
                     .sound(SoundType.CHAIN)
                     .strength(50.0F, 1200.0F)
                     .requiresCorrectToolForDrops()
-                    .pushReaction(PushReaction.BLOCK)
                     .noOcclusion()
                     .isViewBlocking((state, level, pos) -> false)
                     .isSuffocating((state, level, pos) -> false)
@@ -39,7 +37,7 @@ public class ModBlocks {
     }
 
     private static <T extends Block> RegistryObject<Item> registerBlockItem(String name, RegistryObject<T> block) {
-        return ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties().fireResistant()));
+        return ModItems.ITEMS.register(name, () -> new ChainBlockItem(block.get(), new Item.Properties().fireResistant()));
     }
 
     public static void register(IEventBus eventBus) {

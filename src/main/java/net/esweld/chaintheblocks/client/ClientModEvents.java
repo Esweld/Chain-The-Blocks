@@ -23,9 +23,6 @@ public class ClientModEvents {
             if (!"chaintheblocks".equals(key.getNamespace()) || !"chain_block".equals(key.getPath())) {
                 continue;
             }
-            if (key instanceof ModelResourceLocation mrl && "inventory".equals(mrl.getVariant())) {
-                continue;
-            }
             keys.add(key);
         }
         for (ResourceLocation key : keys) {

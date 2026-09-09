@@ -1,5 +1,6 @@
 package net.esweld.chaintheblocks.blockentity;
 
+import net.esweld.chaintheblocks.block.custom.ChainBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -9,6 +10,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -21,6 +23,7 @@ import javax.annotation.Nullable;
 
 public class ChainBlockEntity extends BlockEntity {
     public static final ModelProperty<BlockState> INNER = new ModelProperty<>();
+    public static final ModelProperty<BlockPos> POS = new ModelProperty<>();
 
     private static final String STATE_KEY = "ContainedState";
     private static final String BE_KEY = "ContainedBE";
@@ -49,7 +52,7 @@ public class ChainBlockEntity extends BlockEntity {
     }
 
     public boolean needsEntityRenderer() {
-        return hasContained() && containedState.getRenderShape() != RenderShape.MODEL;
+        return hasContained() && containedState.getRenderShape() == RenderShape.ENTITYBLOCK_ANIMATED;
     }
 
     public void setContained(@Nullable BlockState state, @Nullable CompoundTag beTag) {
@@ -58,8 +61,36 @@ public class ChainBlockEntity extends BlockEntity {
         setChanged();
         requestModelDataUpdate();
         if (level != null && !level.isClientSide) {
+            syncLight();
             BlockState current = getBlockState();
-            level.sendBlockUpdated(worldPosition, current, current, Block.UPDATE_ALL);
+            level.sendBlockUpdated(worldPosition, current, current, Block.UPDATE_CLIENTS);
+        }
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (level != null && !level.isClientSide) {
+            syncLight();
+        }
+        requestModelDataUpdate();
+    }
+
+    private void syncLight() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        BlockState current = getBlockState();
+        if (!current.hasProperty(ChainBlock.FILLED) || !current.hasProperty(ChainBlock.LIGHT)) {
+            return;
+        }
+        int light = 0;
+        if (current.getValue(ChainBlock.FILLED) && containedState != null) {
+            light = Mth.clamp(containedState.getLightEmission(), 0, 15);
+        }
+        if (current.getValue(ChainBlock.LIGHT) != light) {
+            level.setBlock(worldPosition, current.setValue(ChainBlock.LIGHT, light),
+                    Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
         }
     }
 
@@ -68,7 +99,10 @@ public class ChainBlockEntity extends BlockEntity {
         if (!hasContained()) {
             return ModelData.EMPTY;
         }
-        return ModelData.builder().with(INNER, containedState).build();
+        return ModelData.builder()
+                .with(INNER, containedState)
+                .with(POS, worldPosition)
+                .build();
     }
 
     @Override

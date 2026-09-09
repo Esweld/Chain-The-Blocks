@@ -12,8 +12,11 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -25,10 +28,10 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.phys.BlockHitResult;
-
 import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
+import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -39,7 +42,9 @@ public class ChainBlock extends Block implements EntityBlock {
 
     public ChainBlock(Properties properties) {
         super(properties);
-        this.registerDefaultState(this.stateDefinition.any().setValue(FILLED, false).setValue(LIGHT, 0));
+        this.registerDefaultState(this.stateDefinition.any()
+                .setValue(FILLED, false)
+                .setValue(LIGHT, 0));
     }
 
     @Override
@@ -75,7 +80,9 @@ public class ChainBlock extends Block implements EntityBlock {
                     tag.getCompound("ContainedState"));
             light = Mth.clamp(inner.getLightEmission(), 0, 15);
         }
-        return this.defaultBlockState().setValue(FILLED, filled).setValue(LIGHT, light);
+        return this.defaultBlockState()
+                .setValue(FILLED, filled)
+                .setValue(LIGHT, light);
     }
 
     @Override
@@ -85,7 +92,7 @@ public class ChainBlock extends Block implements EntityBlock {
             return InteractionResult.FAIL;
         }
         ItemStack stack = player.getItemInHand(hand);
-        if (player.isShiftKeyDown() && stack.getItem() instanceof BlockItem) {
+        if (player.isShiftKeyDown() && (stack.getItem() instanceof BlockItem || stack.getItem() instanceof BucketItem)) {
             if (!level.isClientSide) {
                 ChainWrapping.insertFromItem(level, pos, stack, player, hit);
             }
@@ -101,23 +108,33 @@ public class ChainBlock extends Block implements EntityBlock {
 
     @Override
     public ItemStack getCloneItemStack(BlockGetter level, BlockPos pos, BlockState state) {
-        ItemStack stack = new ItemStack(this);
-        if (state.getValue(FILLED) && level.getBlockEntity(pos) instanceof ChainBlockEntity be) {
-            be.saveToItem(stack);
-        }
-        return stack;
+        return new ItemStack(this);
     }
 
     @Override
     public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
-        return List.of(new ItemStack(this));
+        ItemStack drop = new ItemStack(this);
+        ItemStack tool = builder.getOptionalParameter(LootContextParams.TOOL);
+        BlockEntity be = builder.getOptionalParameter(LootContextParams.BLOCK_ENTITY);
+        if (tool != null && hasSilkTouch(tool) && be instanceof ChainBlockEntity chain && chain.hasContained()) {
+            chain.saveToItem(drop);
+        }
+        return List.of(drop);
     }
 
     @Override
     public boolean onDestroyedByPlayer(BlockState state, Level level, BlockPos pos, Player player,
                                        boolean willHarvest, FluidState fluid) {
+        boolean silk = hasSilkTouch(player.getMainHandItem());
+        ItemStack drop = new ItemStack(this);
+        if (level.getBlockEntity(pos) instanceof ChainBlockEntity be && be.hasContained()) {
+            if (silk) {
+                be.saveToItem(drop);
+                be.setContained(null, null);
+            }
+        }
         if (!level.isClientSide && willHarvest && !player.getAbilities().instabuild) {
-            popResource(level, pos, new ItemStack(this));
+            popResource(level, pos, drop);
         }
         return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
     }
@@ -144,5 +161,9 @@ public class ChainBlock extends Block implements EntityBlock {
             return;
         }
         super.onRemove(state, level, pos, newState, isMoving);
+    }
+
+    private static boolean hasSilkTouch(ItemStack tool) {
+        return EnchantmentHelper.getItemEnchantmentLevel(Enchantments.SILK_TOUCH, tool) > 0;
     }
 }

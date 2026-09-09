@@ -1,64 +1,40 @@
 package net.esweld.chaintheblocks;
 
-
 import com.mojang.logging.LogUtils;
 import net.esweld.chaintheblocks.block.ModBlocks;
 import net.esweld.chaintheblocks.blockentity.ModBlockEntities;
 import net.esweld.chaintheblocks.item.ModItems;
-import net.esweld.chaintheblocks.blockentity.ModBlockEntities;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import org.slf4j.Logger;
-
 import net.esweld.chaintheblocks.wrapping.ChainInsertDispenseBehavior;
 import net.minecraft.core.dispenser.DispenseItemBehavior;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.BucketItem;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.minecraftforge.registries.ForgeRegistries;
+import org.slf4j.Logger;
+
 import java.util.Map;
 
-
-// The value here should match an entry in the META-INF/mods.toml file
 @Mod(ChainTheBlocks.MOD_ID)
-public class ChainTheBlocks
-{
-    // Define mod id in a common place for everything to reference
+public class ChainTheBlocks {
     public static final String MOD_ID = "chaintheblocks";
-    // Directly reference a slf4j logger
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public ChainTheBlocks(FMLJavaModLoadingContext context)
-    {
+    public ChainTheBlocks(FMLJavaModLoadingContext context) {
         IEventBus modEventBus = context.getModEventBus();
-
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
-
-        // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
-
-
-        // Register ourselves for server and other game events we are interested in
-        MinecraftForge.EVENT_BUS.register(this);
-
-        // Register the item to a creative tab
         modEventBus.addListener(this::addCreative);
-
-        // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
-        // context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -69,7 +45,7 @@ public class ChainTheBlocks
     private static void registerDispenserBehaviors() {
         Map<Item, DispenseItemBehavior> registry = null;
         try {
-            registry = ObfuscationReflectionHelper.getPrivateValue(DispenserBlock.class, null, "DISPENSER_REGISTRY");
+            registry = ObfuscationReflectionHelper.getPrivateValue(DispenserBlock.class, null, "f_52661_");
         } catch (Exception ignored) {
         }
         if (registry == null) {
@@ -78,11 +54,15 @@ public class ChainTheBlocks
                 field.setAccessible(true);
                 registry = (Map<Item, DispenseItemBehavior>) field.get(null);
             } catch (Exception e) {
+                LOGGER.error("Could not hook dispenser behaviors for chain blocks", e);
                 return;
             }
         }
         for (Item item : ForgeRegistries.ITEMS) {
-            if (item instanceof BlockItem) {
+            boolean wrap = item instanceof BlockItem
+                    || (item instanceof BucketItem bucket
+                    && (bucket.getFluid() == Fluids.WATER || bucket.getFluid() == Fluids.LAVA));
+            if (wrap) {
                 DispenseItemBehavior existing = registry.get(item);
                 if (existing instanceof ChainInsertDispenseBehavior) {
                     continue;
@@ -92,31 +72,9 @@ public class ChainTheBlocks
         }
     }
 
-
-    // Add the example block item to the building blocks tab
-    private void addCreative(BuildCreativeModeTabContentsEvent event)
-    {
-        if(event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            //event.accept(ModItems.CHAINBLOCK);
+    private void addCreative(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(ModBlocks.CHAIN_BLOCK);
-        }
-    }
-
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event)
-    {
-
-    }
-
-    // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
-    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
-    public static class ClientModEvents
-    {
-        @SubscribeEvent
-        public static void onClientSetup(FMLClientSetupEvent event)
-        {
-            
         }
     }
 }
